@@ -13,7 +13,11 @@ export const getUsersForSidebar = async (req, res) => {
         //count number of unread messages from each user
         const unseenMessages = {};
         const promises = filteredUsers.map(async (user) => {
-            const messages = await Message.find({ senderId: user._id, receiverId: userId, seen: false });
+            const messages = await Message.find({
+                senderId: user._id,
+                $or: [{ receiverId: userId }, { recieverId: userId }],
+                seen: false
+            });
 
             if (messages.length > 0) {
                 unseenMessages[user._id] = messages.length;
@@ -42,11 +46,13 @@ export const getMessages = async (req, res) => {
         const messages = await Message.find({
             $or: [
                 { senderId: myId, receiverId: selectedUserId },
+                { senderId: myId, recieverId: selectedUserId },
                 { senderId: selectedUserId, receiverId: myId },
+                { senderId: selectedUserId, recieverId: myId },
             ]
 
         })
-        await Message.updateMany({ senderId: selectedUserId, receiverId: myId }, { seen: true });
+        await Message.updateMany({ senderId: selectedUserId, $or: [{ receiverId: myId }, { recieverId: myId }] }, { seen: true });
 
         res.json({ success: true, messages });
 
@@ -78,7 +84,7 @@ export const markMessagesAsSeen = async (req, res) => {
 export const sendMessage = async (req, res) => {
     try {
         const { text, image } = req.body;
-        const recieverId = req.params.id;
+        const receiverId = req.params.id;
         const senderId = req.user._id;
 
         let imageUrl;
@@ -90,15 +96,15 @@ export const sendMessage = async (req, res) => {
 
         const newMessage = await Message.create({
             senderId,
-            recieverId,
+            receiverId,
             text,
             image: imageUrl
         })
 
-        //emit the new message to the recievers socket 
-        const recieverSocketId = userSocketMap[recieverId];
-        if (recieverSocketId) {
-            io.to(recieverSocketId).emit("newMessage", newMessage);
+        //emit the new message to the receiver's socket 
+        const receiverSocketId = userSocketMap[receiverId];
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("newMessage", newMessage);
 
         }
 
