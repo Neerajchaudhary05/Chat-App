@@ -1,2 +1,2 @@
 # Chat-App
-I build a real time chat application using NERN.
+I build a real time chat application using MERN.
